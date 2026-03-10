@@ -5,6 +5,11 @@
 
 API-driven service for posting code snippets, requesting feedback, and collaborating on reviews in real time.
 
+## Prerequisites
+- Node.js 20+
+- npm 9+
+- PostgreSQL 14+
+
 ## Sprint 1: Project Setup & Foundations
 
 What is included:
@@ -68,19 +73,39 @@ Included:
 - Error handling middleware
 - Validation middleware for required fields
 
-## Getting Started
+## Quickstart (Clone and Run)
 
-1. Install dependencies:
+1. Clone and install:
+   - `git clone https://github.com/SineMag/Collaborative-Code-Review-Platform.git`
+   - `cd Collaborative-Code-Review-Platform`
    - `npm install`
-2. Create a PostgreSQL database named `code_review` (or update `.env`)
-3. Apply the schema:
+2. Configure environment:
+   - Copy `.env.example` to `.env`
+   - Set `JWT_SECRET` to a strong value
+   - Update PostgreSQL credentials if needed
+3. Create the database and apply schema:
+   - `createdb code_review`
    - `psql -d code_review -f src/db/schema.sql`
-4. Run the server:
+4. Run the API:
    - `npm run dev`
 
 Health check:
 - `GET /health`
 
+WebSocket:
+- Connect to `ws://localhost:3000/ws` for live notification events.
+
 ## Environment
 
-Copy `.env.example` to `.env` and adjust values as needed.
+Required variables:
+- `JWT_SECRET`
+- `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE` (or `DATABASE_URL`)
+
+Optional variables:
+- `PORT` (defaults to `3000`)
+- `JWT_EXPIRES_IN` (defaults to `1d`)
+
+## Auth Notes
+
+Authenticated requests require:
+- `Authorization: Bearer <JWT>`
