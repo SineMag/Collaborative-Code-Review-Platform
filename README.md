@@ -46,6 +46,28 @@ Endpoints:
 - `PATCH /api/comments/:id` (reviewers only)
 - `DELETE /api/comments/:id` (reviewers only)
 
+## Sprint 6: Review Workflow
+
+Endpoints:
+- `POST /api/submissions/:id/approve` (reviewers only)
+- `POST /api/submissions/:id/request-changes` (reviewers only)
+- `GET /api/submissions/:id/reviews`
+
+## Sprint 7: Notifications & Stats
+
+Endpoints:
+- `GET /api/users/:id/notifications`
+- `GET /api/projects/:id/stats`
+
+WebSocket:
+- Connect to `ws://localhost:3000/ws` for live notification events.
+
+## Sprint 8: Middleware & Testing
+
+Included:
+- Error handling middleware
+- Validation middleware for required fields
+
 ## Getting Started
 
 1. Install dependencies:

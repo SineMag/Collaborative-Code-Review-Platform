@@ -1,4 +1,5 @@
 import { config } from "dotenv";
+import http from "http";
 import express from "express";
 import { pool } from "./db/pool";
 import authRoutes from "./routes/auth";
@@ -6,6 +7,8 @@ import commentRoutes from "./routes/comments";
 import projectRoutes from "./routes/projects";
 import submissionRoutes from "./routes/submissions";
 import userRoutes from "./routes/users";
+import { errorHandler, notFound } from "./middleware/error";
+import { initWebsocket } from "./realtime";
 
 config();
 
@@ -28,8 +31,14 @@ app.get("/health", async (_req, res) => {
   }
 });
 
+app.use(notFound);
+app.use(errorHandler);
+
 const port = Number(process.env.PORT) || 3000;
 
-app.listen(port, () => {
+const server = http.createServer(app);
+initWebsocket(server);
+
+server.listen(port, () => {
   console.log(`API listening on port ${port}`);
 });

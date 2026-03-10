@@ -1,19 +1,19 @@
 import { Router } from "express";
 import { pool } from "../db/pool";
 import { requireAuth } from "../middleware/auth";
+import { validateBody } from "../middleware/validate";
 
 const router = Router();
 
-router.post("/", requireAuth, async (req, res) => {
+router.post("/", requireAuth, validateBody(["name"]), async (req, res) => {
   const { name, description } = req.body as {
     name?: string;
     description?: string;
   };
 
   if (!name || !name.trim()) {
-    return res.status(400).json({ message: "name is required" });
+    return res.status(400).json({ message: "name cannot be empty" });
   }
-
   try {
     const result = await pool.query(
       `
@@ -50,13 +50,114 @@ router.get("/", requireAuth, async (req, res) => {
   }
 });
 
-router.post("/:id/members", requireAuth, async (req, res) => {
+router.get("/:id/stats", requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user?.id as string;
+
+  try {
+    const access = await pool.query(
+      `
+        SELECT p.owner_id, pm.user_id AS member_id
+        FROM projects p
+        LEFT JOIN project_members pm
+          ON pm.project_id = p.id AND pm.user_id = $2
+        WHERE p.id = $1
+      `,
+      [id, userId]
+    );
+
+    if (access.rowCount === 0) {
+      return res.status(404).json({ message: "Project not found" });
+    }
+
+    const isOwner = access.rows[0].owner_id === userId;
+    const isMember = Boolean(access.rows[0].member_id);
+
+    if (!isOwner && !isMember) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    const avgReviewTimeResult = await pool.query(
+      `
+        SELECT AVG(EXTRACT(EPOCH FROM (r.first_review_at - s.created_at))) AS avg_seconds
+        FROM submissions s
+        JOIN (
+          SELECT submission_id, MIN(created_at) AS first_review_at
+          FROM reviews
+          GROUP BY submission_id
+        ) r ON r.submission_id = s.id
+        WHERE s.project_id = $1
+      `,
+      [id]
+    );
+
+    const statusCountsResult = await pool.query(
+      `
+        SELECT
+          COUNT(*) FILTER (WHERE status = 'approved') AS approved,
+          COUNT(*) FILTER (WHERE status = 'changes_requested') AS changes_requested,
+          COUNT(*) FILTER (WHERE status IN ('approved', 'changes_requested')) AS reviewed
+        FROM submissions
+        WHERE project_id = $1
+      `,
+      [id]
+    );
+
+    const reviewerActivityResult = await pool.query(
+      `
+        SELECT r.reviewer_id, u.name, COUNT(*)::int AS review_count
+        FROM reviews r
+        JOIN submissions s ON s.id = r.submission_id
+        JOIN users u ON u.id = r.reviewer_id
+        WHERE s.project_id = $1
+        GROUP BY r.reviewer_id, u.name
+        ORDER BY review_count DESC
+      `,
+      [id]
+    );
+
+    const topSubmissionResult = await pool.query(
+      `
+        SELECT s.id, s.title, COUNT(c.id)::int AS comment_count
+        FROM submissions s
+        LEFT JOIN comments c ON c.submission_id = s.id
+        WHERE s.project_id = $1
+        GROUP BY s.id, s.title, s.created_at
+        ORDER BY comment_count DESC, s.created_at DESC
+        LIMIT 1
+      `,
+      [id]
+    );
+
+    const statusCounts = statusCountsResult.rows[0] || {
+      approved: 0,
+      changes_requested: 0,
+      reviewed: 0
+    };
+
+    const reviewedCount = Number(statusCounts.reviewed) || 0;
+    const approvedCount = Number(statusCounts.approved) || 0;
+    const changesRequestedCount = Number(statusCounts.changes_requested) || 0;
+
+    const stats = {
+      average_review_time_seconds: avgReviewTimeResult.rows[0]?.avg_seconds
+        ? Number(avgReviewTimeResult.rows[0].avg_seconds)
+        : null,
+      approval_rate: reviewedCount ? approvedCount / reviewedCount : null,
+      changes_requested_rate: reviewedCount ? changesRequestedCount / reviewedCount : null,
+      reviewer_activity: reviewerActivityResult.rows,
+      top_submission_by_comments: topSubmissionResult.rows[0] || null
+    };
+
+    return res.status(200).json({ stats });
+  } catch {
+    return res.status(500).json({ message: "Unable to fetch project stats" });
+  }
+});
+
+router.post("/:id/members", requireAuth, validateBody(["userId"]), async (req, res) => {
   const { id } = req.params;
   const { userId } = req.body as { userId?: string };
-
-  if (!userId) {
-    return res.status(400).json({ message: "userId is required" });
-  }
 
   try {
     const ownerCheck = await pool.query(

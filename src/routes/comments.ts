@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { pool } from "../db/pool";
 import { requireAuth, requireReviewer } from "../middleware/auth";
+import { validateBody } from "../middleware/validate";
+import { broadcastEvent } from "../realtime";
 
 const router = Router();
 
@@ -30,48 +32,74 @@ async function getSubmissionContext(submissionId: string, userId: string) {
   } | undefined;
 }
 
-router.post("/submissions/:id/comments", requireAuth, requireReviewer, async (req, res) => {
-  const { id } = req.params;
-  const { body, lineNumber } = req.body as {
-    body?: string;
-    lineNumber?: number;
-  };
+async function createNotification(userId: string, type: string, payload: Record<string, unknown>) {
+  const result = await pool.query(
+    `
+      INSERT INTO notifications (user_id, type, payload)
+      VALUES ($1, $2, $3)
+      RETURNING id, user_id, type, payload, created_at
+    `,
+    [userId, type, payload]
+  );
 
-  if (!body || !body.trim()) {
-    return res.status(400).json({ message: "body is required" });
-  }
+  broadcastEvent({ type: "notification", payload: result.rows[0], userId });
+}
 
-  if (lineNumber !== undefined && (!Number.isInteger(lineNumber) || lineNumber < 1)) {
-    return res.status(400).json({ message: "lineNumber must be a positive integer" });
-  }
+router.post(
+  "/submissions/:id/comments",
+  requireAuth,
+  requireReviewer,
+  validateBody([{ key: "body", message: "body is required" }]),
+  async (req, res) => {
+    const { id } = req.params;
+    const { body, lineNumber } = req.body as {
+      body?: string;
+      lineNumber?: number;
+    };
 
-  try {
-    const context = await getSubmissionContext(id, req.user?.id as string);
-
-    if (!context) {
-      return res.status(404).json({ message: "Submission not found" });
+    if (!body || !body.trim()) {
+      return res.status(400).json({ message: "body is required" });
     }
 
-    const allowed = context.owner_id === req.user?.id || Boolean(context.member_id);
-
-    if (!allowed) {
-      return res.status(403).json({ message: "Forbidden" });
+    if (lineNumber !== undefined && (!Number.isInteger(lineNumber) || lineNumber < 1)) {
+      return res.status(400).json({ message: "lineNumber must be a positive integer" });
     }
 
-    const result = await pool.query(
-      `
-        INSERT INTO comments (submission_id, author_id, line_number, body)
-        VALUES ($1, $2, $3, $4)
-        RETURNING id, submission_id, author_id, line_number, body, created_at
-      `,
-      [id, req.user?.id, lineNumber || null, body]
-    );
+    try {
+      const context = await getSubmissionContext(id, req.user?.id as string);
 
-    return res.status(201).json({ comment: result.rows[0] });
-  } catch {
-    return res.status(500).json({ message: "Unable to add comment" });
+      if (!context) {
+        return res.status(404).json({ message: "Submission not found" });
+      }
+
+      const allowed = context.owner_id === req.user?.id || Boolean(context.member_id);
+
+      if (!allowed) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const result = await pool.query(
+        `
+          INSERT INTO comments (submission_id, author_id, line_number, body)
+          VALUES ($1, $2, $3, $4)
+          RETURNING id, submission_id, author_id, line_number, body, created_at
+        `,
+        [id, req.user?.id, lineNumber || null, body]
+      );
+
+      if (context.author_id !== req.user?.id) {
+        await createNotification(context.author_id, "comment_added", {
+          submission_id: id,
+          comment_id: result.rows[0].id
+        });
+      }
+
+      return res.status(201).json({ comment: result.rows[0] });
+    } catch {
+      return res.status(500).json({ message: "Unable to add comment" });
+    }
   }
-});
+);
 
 router.get("/submissions/:id/comments", requireAuth, async (req, res) => {
   const { id } = req.params;

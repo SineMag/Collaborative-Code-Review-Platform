@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { pool } from "../db/pool";
 import { UserRole } from "../middleware/auth";
+import { validateBody } from "../middleware/validate";
 
 const router = Router();
 
@@ -10,7 +11,7 @@ function isRole(value: unknown): value is UserRole {
   return value === "reviewer" || value === "submitter";
 }
 
-router.post("/register", async (req, res) => {
+router.post("/register", validateBody(["name", "email", "password"]), async (req, res) => {
   const { name, email, password, role, displayPicture } = req.body as {
     name?: string;
     email?: string;
@@ -50,7 +51,7 @@ router.post("/register", async (req, res) => {
   }
 });
 
-router.post("/login", async (req, res) => {
+router.post("/login", validateBody(["email", "password"]), async (req, res) => {
   const { email, password } = req.body as {
     email?: string;
     password?: string;

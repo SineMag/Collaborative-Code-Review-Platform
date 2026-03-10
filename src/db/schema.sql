@@ -54,7 +54,25 @@ CREATE TABLE IF NOT EXISTS comments (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS reviews (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  submission_id UUID NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
+  reviewer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status submission_status NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type TEXT NOT NULL,
+  payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE INDEX IF NOT EXISTS idx_projects_owner_id ON projects(owner_id);
 CREATE INDEX IF NOT EXISTS idx_project_members_user_id ON project_members(user_id);
 CREATE INDEX IF NOT EXISTS idx_submissions_project_id ON submissions(project_id);
 CREATE INDEX IF NOT EXISTS idx_comments_submission_id ON comments(submission_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_submission_id ON reviews(submission_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);

@@ -31,6 +31,31 @@ router.get("/:id", requireAuth, async (req, res) => {
   }
 });
 
+router.get("/:id/notifications", requireAuth, async (req, res) => {
+  const { id } = req.params;
+
+  if (req.user?.id !== id && req.user?.role !== "reviewer") {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
+  try {
+    const result = await pool.query(
+      `
+        SELECT id, user_id, type, payload, created_at
+        FROM notifications
+        WHERE user_id = $1
+        ORDER BY created_at DESC
+        LIMIT 50
+      `,
+      [id]
+    );
+
+    return res.status(200).json({ notifications: result.rows });
+  } catch {
+    return res.status(500).json({ message: "Unable to fetch notifications" });
+  }
+});
+
 router.patch("/:id", requireAuth, async (req, res) => {
   const { id } = req.params;
 
