@@ -29,6 +29,23 @@ Endpoints:
 - `POST /api/projects/:id/members`
 - `DELETE /api/projects/:id/members/:userId`
 
+## Sprint 4: Code Submissions
+
+Endpoints:
+- `POST /api/submissions`
+- `GET /api/projects/:id/submissions`
+- `GET /api/submissions/:id`
+- `PATCH /api/submissions/:id/status`
+- `DELETE /api/submissions/:id`
+
+## Sprint 5: Comments
+
+Endpoints:
+- `POST /api/submissions/:id/comments` (reviewers only)
+- `GET /api/submissions/:id/comments`
+- `PATCH /api/comments/:id` (reviewers only)
+- `DELETE /api/comments/:id` (reviewers only)
+
 ## Getting Started
 
 1. Install dependencies:
