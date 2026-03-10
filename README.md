@@ -21,6 +21,14 @@ Endpoints:
 - `PATCH /api/users/:id` (auth required, self)
 - `DELETE /api/users/:id` (auth required, self)
 
+## Sprint 3: Projects
+
+Endpoints:
+- `POST /api/projects`
+- `GET /api/projects`
+- `POST /api/projects/:id/members`
+- `DELETE /api/projects/:id/members/:userId`
+
 ## Getting Started
 
 1. Install dependencies:
