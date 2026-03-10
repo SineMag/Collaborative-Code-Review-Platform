@@ -9,6 +9,15 @@ What is included:
 - PostgreSQL connection pool
 - Initial DB schema (users, projects, submissions, comments)
 
+## Sprint 2: Authentication & Users
+
+Endpoints:
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/users/:id` (auth required, self or reviewer)
+- `PATCH /api/users/:id` (auth required, self)
+- `DELETE /api/users/:id` (auth required, self)
+
 ## Getting Started
 
 1. Install dependencies:

@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
   role user_role NOT NULL DEFAULT "submitter",
+  display_picture TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
