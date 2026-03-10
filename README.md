@@ -1,4 +1,7 @@
+<img src="https://socialify.git.ci/SineMag/Collaborative-Code-Review-Platform/image?language=1&owner=1&name=1&stargazers=1&theme=Light" alt="Collaborative-Code-Review-Platform" width="640" height="320" />
+
 # Collaborative Code Review Platform
+
 
 API-driven service for posting code snippets, requesting feedback, and collaborating on reviews in real time.
 
