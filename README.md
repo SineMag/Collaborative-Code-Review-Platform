@@ -80,7 +80,7 @@ Included:
    - `cd Collaborative-Code-Review-Platform`
    - `npm install`
 2. Configure environment:
-   - Copy `.env.example` to `.env`
+   - Copy `STEPS.md` to your own `.env` file
    - Set `JWT_SECRET` to a strong value
    - Update PostgreSQL credentials if needed
 3. Create the database and apply schema:
