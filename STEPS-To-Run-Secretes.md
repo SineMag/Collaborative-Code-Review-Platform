@@ -5,7 +5,7 @@
 PORT=3000
 
 # Auth
-JWT_SECRET=change-me
+JWT_SECRET= your jwt secrete here
 JWT_EXPIRES_IN=1d
 
 # PostgreSQL
