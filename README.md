@@ -188,7 +188,7 @@ JWT_SECRET=cb6b93d0670584b11f432304ed61ad3b49e17261b9d74d070b9e73a9c233ec10f35a1
 
 
 
-# Table for the PostgreSQL 
+# Table for the PostgreSQL (also available in /schema.sql file under the db folder)
 ```sql
 -- Initial schema for Sprint 1
 -- Requires pgcrypto for gen_random_uuid()
