@@ -95,6 +95,69 @@ Health check:
 WebSocket:
 - Connect to `ws://localhost:3000/ws` for live notification events.
 
+## Testing with example users
+
+The following quick examples use curl to register two fake users, log them in, and demonstrate using the returned JWT to call a protected endpoint. These are intended for local testing only.
+
+Example (Mock) users:
+- Alice Submitter (submitter)
+  - name: "Alice Submitter"
+  - email: "alice@example.com"
+  - password: "Passw0rd!"
+- Bob Reviewer (reviewer)
+  - name: "Bob Reviewer"
+  - email: "bob@example.com"
+  - password: "StrongP@ss1"
+
+1) Register the users
+
+```bash
+curl -X POST http://localhost:3000/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Alice Submitter","email":"alice@example.com","password":"Passw0rd!"}'
+
+curl -X POST http://localhost:3000/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Bob Reviewer","email":"bob@example.com","password":"StrongP@ss1","role":"reviewer"}'
+```
+
+2) Login and capture the token (uses jq to parse JSON; install jq or parse manually)
+
+```bash
+# Login Alice
+ALICE_LOGIN_RESPONSE=$(curl -s -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"alice@example.com","password":"Passw0rd!"}')
+ALICE_TOKEN=$(echo "$ALICE_LOGIN_RESPONSE" | jq -r .token)
+ALICE_ID=$(echo "$ALICE_LOGIN_RESPONSE" | jq -r .user.id)
+
+# Login Bob
+BOB_LOGIN_RESPONSE=$(curl -s -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"bob@example.com","password":"StrongP@ss1"}')
+BOB_TOKEN=$(echo "$BOB_LOGIN_RESPONSE" | jq -r .token)
+BOB_ID=$(echo "$BOB_LOGIN_RESPONSE" | jq -r .user.id)
+```
+
+3) Call a protected endpoint with the token
+
+```bash
+# Get Alice's user record (replace with the actual user id returned above)
+curl -H "Authorization: Bearer $ALICE_TOKEN" \
+  http://localhost:3000/api/users/$ALICE_ID
+
+# Example: create a project as Alice (requires auth)
+curl -X POST http://localhost:3000/api/projects \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $ALICE_TOKEN" \
+  -d '{"name":"Test Project","description":"Example project"}'
+```
+
+Notes:
+- If you don't have jq, you can copy the token and user id from the raw JSON responses.
+- The role field when registering is optional; omitting it defaults to "submitter".
+- Use distinct emails when re-running register to avoid unique constraint errors (409 Email already exists).
+
 ## Environment
 
 Required variables:
@@ -122,3 +185,101 @@ JWT_SECRET=cb6b93d0670584b11f432304ed61ad3b49e17261b9d74d070b9e73a9c233ec10f35a1
 012acfac1b30a0722729edd7af10af1ac59c5bf86efaa4f1364fedu
 ```
 
+
+
+
+# Table for the PostgreSQL 
+```sql
+-- Initial schema for Sprint 1
+-- Requires pgcrypto for gen_random_uuid()
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- Drop types if re-running (safe reset)
+DROP TYPE IF EXISTS user_role CASCADE;
+DROP TYPE IF EXISTS submission_status CASCADE;
+
+-- Enums
+CREATE TYPE user_role AS ENUM ('reviewer', 'submitter');
+
+CREATE TYPE submission_status AS ENUM (
+  'pending',
+  'in_review',
+  'approved',
+  'changes_requested'
+);
+
+-- Users
+CREATE TABLE IF NOT EXISTS users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  email TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  role user_role NOT NULL DEFAULT 'submitter',
+  display_picture TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Projects
+CREATE TABLE IF NOT EXISTS projects (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  description TEXT,
+  owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Project Members
+CREATE TABLE IF NOT EXISTS project_members (
+  project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (project_id, user_id)
+);
+
+-- Submissions
+CREATE TABLE IF NOT EXISTS submissions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  author_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  content TEXT NOT NULL,
+  status submission_status NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Comments
+CREATE TABLE IF NOT EXISTS comments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  submission_id UUID NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
+  author_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  line_number INTEGER,
+  body TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Reviews
+CREATE TABLE IF NOT EXISTS reviews (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  submission_id UUID NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
+  reviewer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status submission_status NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Notifications
+CREATE TABLE IF NOT EXISTS notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type TEXT NOT NULL,
+  payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_projects_owner_id ON projects(owner_id);
+CREATE INDEX IF NOT EXISTS idx_project_members_user_id ON project_members(user_id);
+CREATE INDEX IF NOT EXISTS idx_submissions_project_id ON submissions(project_id);
+CREATE INDEX IF NOT EXISTS idx_comments_submission_id ON comments(submission_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_submission_id ON reviews(submission_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
+```
