@@ -115,7 +115,7 @@ Authenticated requests require:
 DB_USER=postgres
 DB_PASSWORD=Malinga@911
 DB_HOST=localhost
-DB_DATABASE=collabo_app
+DB_DATABASE=collaboration_app
 DB_PORT=5432
 APP_PORT=3000
 JWT_SECRET=cb6b93d0670584b11f432304ed61ad3b49e17261b9d74d070b9e73a9c233ec10f35a151f20
